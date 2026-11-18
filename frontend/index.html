@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KiranaCopilot — AI Stock Copilot for StoreyStores</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            kirana: {
+              50: '#fffbeb',
+              100: '#fef3c7',
+              500: '#f59e0b',
+              600: '#d97706',
+              700: '#b45309',
+              800: '#92400e',
+              900: '#78350f',
+            },
+            saffron: '#FF9933',
+            indiaGreen: '#138808'
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- React 18 & ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    @keyframes pulse-slow {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.85; transform: scale(1.03); }
+    }
+    .pulse-agent {
+      animation: pulse-slow 2s infinite ease-in-out;
+    }
+    /* Light theme custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen font-sans antialiased selection:bg-amber-400 selection:text-slate-950">
+  <div id="root"></div>
+
+  <!-- Main React App Script -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // Helper SVG Icons
+    const Icons = {
+      Store: () => (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+      ),
+      Bot: () => (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+      ),
+      Mic: ({ active }) => (
+        <svg className={`w-5 h-5 ${active ? 'text-red-600 animate-pulse' : 'text-slate-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+      ),
+      Sparkles: () => (
+        <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+      ),
+      AlertTriangle: () => (
+        <svg className="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+      ),
+      CheckCircle: () => (
+        <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      ),
+      FileText: () => (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      ),
+      Refresh: () => (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      ),
+      PhoneCall: () => (
+        <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+      ),
+      Sun: () => (
+        <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+      ),
+      Moon: () => (
+        <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+      )
+    };
+
+    function App() {
+      // Core state
+      const [state, setState] = useState(null);
+      const [traces, setTraces] = useState([]);
+      const [loading, setLoading] = useState(true);
+      const [agentBusy, setAgentBusy] = useState(false);
+      
+      // UI Controls
+      const [activeTab, setActiveTab] = useState('inventory'); // 'inventory', 'khata', 'insights'
+      const [traceFilter, setTraceFilter] = useState('ALL');
+      const [speechTranscript, setSpeechTranscript] = useState('');
+      const [isListening, setIsListening] = useState(false);
+      const [showBillModal, setShowBillModal] = useState(false);
+      const [sampleBill, setSampleBill] = useState(null);
+      const [editingBudget, setEditingBudget] = useState(false);
+      const [newBudgetVal, setNewBudgetVal] = useState(20000);
+      const [toast, setToast] = useState(null);
+      
+      const traceEndRef = useRef(null);
+
+      // Web Speech recognition setup
+      const recognitionRef = useRef(null);
+
+      useEffect(() => {
+        fetchState();
+        fetchTraces();
+        const interval = setInterval(() => {
+          fetchTraces();
+        }, 3000);
+        return () => clearInterval(interval);
+      }, []);
+
+      useEffect(() => {
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+          const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+          recognitionRef.current = new SpeechRecognition();
+          recognitionRef.current.continuous = false;
+          recognitionRef.current.interimResults = false;
+          recognitionRef.current.lang = 'hi-IN'; // Hinglish friendly
+
+          recognitionRef.current.onresult = (event) => {
+            const text = event.results[0][0].transcript;
+            setSpeechTranscript(text);
+            setIsListening(false);
+            showToast("Voice captured: " + text, "info");
+          };
+
+          recognitionRef.current.onerror = () => {
+            setIsListening(false);
+            showToast("Microphone error or permission denied.", "warning");
+          };
+
+          recognitionRef.current.onend = () => {
+            setIsListening(false);
+          };
+        }
+      }, []);
+
+      const showToast = (msg, type = "info") => {
+        setToast({ msg, type });
+        setTimeout(() => setToast(null), 4000);
+      };
+
+      const fetchState = async () => {
+        try {
+          const res = await fetch('/api/state');
+          const data = await res.json();
+          setState(data);
+          setNewBudgetVal(data.cash_budget);
+          setLoading(false);
+        } catch (err) {
+          console.error("Error fetching state:", err);
+        }
+      };
+
+      const fetchTraces = async () => {
+        try {
+          const res = await fetch('/api/traces');
+          const data = await res.json();
+          setTraces(data.traces || []);
+        } catch (err) {
+          console.error("Error fetching traces:", err);
+        }
+      };
+
+      // Toggle festival mode
+      const toggleFestivalMode = async () => {
+        if (!state) return;
+        const newMode = !state.festival_mode;
+        try {
+          await fetch('/api/festival-mode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: newMode })
+          });
+          await fetchState();
+          await fetchTraces();
+          showToast(`Festival Surge Mode ${newMode ? 'ACTIVATED (+80% demand)' : 'DEACTIVATED'}`, "info");
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      // Save budget
+      const saveBudget = async () => {
+        try {
+          await fetch('/api/budget', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ budget: parseFloat(newBudgetVal) })
+          });
+          setEditingBudget(false);
+          await fetchState();
+          await fetchTraces();
+          showToast(`Cash Budget updated to ₹${newBudgetVal}`, "success");
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      // Run full AI Agent Audit
+      const runAgentAudit = async () => {
+        setAgentBusy(true);
+        showToast("AI Agent scanning inventory, demand curves & working capital...", "info");
+        try {
+          const res = await fetch('/api/agent/run-audit', { method: 'POST' });
+          await res.json();
+          await fetchState();
+          await fetchTraces();
+          showToast("AI Audit Completed: Proposed Order Awaiting Your Approval!", "success");
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setAgentBusy(false);
+        }
+      };
+
+      // Approve active order
+      const handleApproveOrder = async (orderId) => {
+        setAgentBusy(true);
+        try {
+          await fetch('/api/agent/approve-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_id: orderId, action: 'approve' })
+          });
+          await fetchState();
+          await fetchTraces();
+          showToast("Order Approved & Sent to Balaji Wholesale via WhatsApp Simulator!", "success");
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setAgentBusy(false);
+        }
+      };
+
+      // Reject active order
+      const handleRejectOrder = async (orderId) => {
+        try {
+          await fetch('/api/agent/approve-order', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ order_id: orderId, action: 'reject' })
+          });
+          await fetchState();
+          await fetchTraces();
+          showToast("Order proposal rejected.", "warning");
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      // Simulate distributor stockout
+      const triggerSimulateStockout = async () => {
+        setAgentBusy(true);
+        showToast("Distributor WhatsApp alert received! Triggering autonomous recovery...", "warning");
+        try {
+          await fetch('/api/agent/simulate-stockout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              out_of_stock_sku: 'SKU02',
+              supplier_note: 'Bhaiya, Sunflower Cooking Oil 1L pouch is out of stock in warehouse! Only 5L Fortune Jar (₹590 cost, ₹650 MRP) or Palm Oil available.'
+            })
+          });
+          await fetchState();
+          await fetchTraces();
+          showToast("Exception Handled: Alternate Order prepared with 5L Fortune Jars!", "success");
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setAgentBusy(false);
+        }
+      };
+
+      // Voice recognition toggle
+      const toggleVoiceListening = () => {
+        if (!recognitionRef.current) {
+          showToast("Web Speech API not supported in this browser. Please use quick chips or type text.", "warning");
+          return;
+        }
+        if (isListening) {
+          recognitionRef.current.stop();
+          setIsListening(false);
+        } else {
+          try {
+            recognitionRef.current.start();
+            setIsListening(true);
+            showToast("Listening... Speak in Hindi/English (e.g. 'tel 4 packet, Ramesh 450 udhaar')", "info");
+          } catch (e) {
+            console.error(e);
+          }
+        }
+      };
+
+      // Process voice or typed transcript
+      const handleProcessVoiceInput = async (textToProcess) => {
+        const text = textToProcess || speechTranscript;
+        if (!text.trim()) return;
+        setAgentBusy(true);
+        try {
+          const res = await fetch('/api/voice/process', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ transcript: text })
+          });
+          const data = await res.json();
+          await fetchState();
+          await fetchTraces();
+          setSpeechTranscript('');
+          showToast(data.actions_taken.join(' | ') || "Processed voice input", "success");
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setAgentBusy(false);
+        }
+      };
+
+      // Open sample bill modal
+      const openSampleBillModal = async () => {
+        try {
+          const res = await fetch('/api/ocr/sample-bill');
+          const data = await res.json();
+          setSampleBill(data);
+          setShowBillModal(true);
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      // Confirm Bill Inward
+      const confirmBillInward = async () => {
+        if (!sampleBill) return;
+        setAgentBusy(true);
+        try {
+          await fetch('/api/ocr/confirm-inward', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sampleBill)
+          });
+          setShowBillModal(false);
+          await fetchState();
+          await fetchTraces();
+          showToast(`Inward confirmed: Stock credited and ₹${sampleBill.grand_total} deducted!`, "success");
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setAgentBusy(false);
+        }
+      };
+
+      // Reset Demo State
+      const resetDemoState = async () => {
+        if (!confirm("Reset StoreyStores to pristine initial demo state?")) return;
+        setAgentBusy(true);
+        try {
+          await fetch('/api/reset-demo', { method: 'POST' });
+          await fetchState();
+          await fetchTraces();
+          showToast("StoreyStores reset to pristine initial state!", "success");
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setAgentBusy(false);
+        }
+      };
+
+      // Clear traces
+      const clearTraces = async () => {
+        try {
+          await fetch('/api/traces/clear', { method: 'POST' });
+          setTraces([]);
+          showToast("Trace log cleared", "info");
+        } catch (err) {
+          console.error(err);
+        }
+      };
+
+      if (loading || !state) {
+        return (
+          <div className="flex h-screen items-center justify-center bg-slate-100 text-slate-800">
+            <div className="text-center bg-white p-8 rounded-2xl shadow-lg border border-slate-200">
+              <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <h2 className="text-xl font-bold text-slate-900">Initializing KiranaCopilot...</h2>
+              <p className="text-slate-500 text-sm mt-1">Connecting to StoreyStores Kirana inventory database</p>
+            </div>
+          </div>
+        );
+      }
+
+      // Filter traces
+      const filteredTraces = traces.filter(t => {
+        if (traceFilter === 'ALL') return true;
+        if (traceFilter === 'THINK' && t.stage === 'THINK') return true;
+        if (traceFilter === 'TOOLS' && (t.stage === 'TOOL_CALL' || t.stage === 'TOOL_RESULT')) return true;
+        if (traceFilter === 'GUARDRAILS' && t.stage === 'GUARDRAIL') return true;
+        if (traceFilter === 'RECOVERY' && t.stage === 'RECOVERY') return true;
+        return true;
+      });
+
+      const activeOrder = state.active_order;
+
+      return (
+        <div className="min-h-screen flex flex-col bg-slate-100 text-slate-900">
+          
+          {/* TOAST NOTIFICATION */}
+          {toast && (
+            <div className="fixed top-4 right-4 z-50 bg-white border border-amber-400 text-amber-900 px-4 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-bounce">
+              <Icons.Sparkles />
+              <span className="text-sm font-semibold">{toast.msg}</span>
+            </div>
+          )}
+
+          {/* TOP NAVBAR & BRANDING */}
+          <header className="border-b border-slate-200 bg-white/95 backdrop-blur sticky top-0 z-40 px-5 py-3 shadow-sm">
+            <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 via-amber-400 to-yellow-300 flex items-center justify-center shadow-md shadow-amber-500/20 text-slate-950 font-black text-xl">
+                  K
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-lg font-bold tracking-tight text-slate-900 flex items-center gap-1.5">
+                      KiranaCopilot
+                      <span className="text-xs bg-amber-100 text-amber-800 border border-amber-300 px-2 py-0.5 rounded-full font-mono font-medium">
+                        v1.0 Light Edition
+                      </span>
+                    </h1>
+                  </div>
+                  <p className="text-xs text-slate-500 flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                    <span>Store: <strong className="text-slate-800">StoreyStores (Bengaluru)</strong></span>
+                    <span className="text-slate-300">|</span>
+                    <span>AI Engine: <strong className="text-amber-700 font-semibold">Autonomous ReAct Loop</strong></span>
+                  </p>
+                </div>
+              </div>
+
+              {/* ACTION BUTTONS & DEMO RESET */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={runAgentAudit}
+                  disabled={agentBusy}
+                  className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/10 flex items-center gap-1.5 transition active:scale-95 disabled:opacity-50"
+                >
+                  <Icons.Sparkles />
+                  <span>{agentBusy ? 'Agent Running...' : 'Run Full Agentic Audit'}</span>
+                </button>
+
+                <button
+                  onClick={resetDemoState}
+                  className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs border border-slate-200 font-medium flex items-center gap-1.5 transition"
+                  title="Restore pristine StoreyStores inventory and ₹20k budget"
+                >
+                  <Icons.Refresh />
+                  <span>Reset Demo DB</span>
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* TOP KPI BAR */}
+          <section className="bg-white border-b border-slate-200 px-5 py-3.5">
+            <div className="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-3">
+              
+              {/* Cash Budget */}
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex flex-col justify-between relative overflow-hidden shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Available Cash Budget</span>
+                  <button 
+                    onClick={() => setEditingBudget(!editingBudget)}
+                    className="text-xs text-amber-700 hover:underline font-medium"
+                  >
+                    {editingBudget ? 'Cancel' : 'Edit'}
+                  </button>
+                </div>
+                {editingBudget ? (
+                  <div className="flex items-center gap-2 mt-2">
+                    <input 
+                      type="number" 
+                      value={newBudgetVal} 
+                      onChange={(e) => setNewBudgetVal(e.target.value)}
+                      className="w-24 bg-white border border-amber-500 text-slate-900 text-sm px-2 py-0.5 rounded shadow-xs"
+                    />
+                    <button onClick={saveBudget} className="bg-amber-500 text-slate-950 text-xs px-2 py-1 rounded font-bold">Save</button>
+                  </div>
+                ) : (
+                  <div className="mt-1 flex items-baseline gap-1">
+                    <span className="text-2xl font-black text-emerald-600">₹{state.cash_budget.toLocaleString('en-IN')}</span>
+                    <span className="text-xs text-slate-400 font-medium">Working Capital</span>
+                  </div>
+                )}
+                <div className="absolute right-0 bottom-0 translate-x-2 translate-y-2 opacity-10 pointer-events-none text-emerald-600">
+                  <Icons.Store />
+                </div>
+              </div>
+
+              {/* At-Risk Expiry Capital */}
+              <div className="bg-rose-50/50 border border-rose-200 rounded-xl p-3 flex flex-col justify-between shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-rose-800 font-semibold uppercase tracking-wider">At-Risk Expiry Value</span>
+                  <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                </div>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-rose-600">₹{state.kpis.at_risk_expiry_value.toLocaleString('en-IN')}</span>
+                  <span className="text-xs text-rose-800 bg-rose-100 px-1.5 py-0.5 rounded border border-rose-300 font-medium">
+                    {state.kpis.near_expiry_count} SKU (≤15d)
+                  </span>
+                </div>
+                <p className="text-[10px] text-rose-600/80 mt-0.5 font-medium">Dairy Milk Powder (8d left)</p>
+              </div>
+
+              {/* Blocked Dead Capital */}
+              <div className="bg-amber-50/60 border border-amber-200 rounded-xl p-3 flex flex-col justify-between shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-amber-800 font-semibold uppercase tracking-wider">Blocked Dead Capital</span>
+                  <span className="text-[10px] text-amber-800 font-mono font-medium">Velocity &lt; 0.1/d</span>
+                </div>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-amber-700">₹{state.kpis.blocked_dead_capital.toLocaleString('en-IN')}</span>
+                  <span className="text-xs text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded border border-amber-300 font-medium">
+                    {state.kpis.dead_stock_count} SKU
+                  </span>
+                </div>
+                <p className="text-[10px] text-amber-700/80 mt-0.5 font-medium">Herbal Tea (Sold 1 in 3 wks)</p>
+              </div>
+
+              {/* Stockout Threats */}
+              <div className="bg-sky-50/60 border border-sky-200 rounded-xl p-3 flex flex-col justify-between shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-sky-800 font-semibold uppercase tracking-wider">Stockout Threats</span>
+                  <span className="text-[10px] text-sky-800 font-mono font-medium">Next Visit: {state.next_distributor_days}d</span>
+                </div>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="text-2xl font-black text-sky-700">{state.kpis.critical_stockouts_count} SKUs</span>
+                  <span className="text-xs text-sky-800 bg-sky-100 px-1.5 py-0.5 rounded border border-sky-300 font-medium">
+                    Urgent
+                  </span>
+                </div>
+                <p className="text-[10px] text-sky-700/80 mt-0.5 font-medium">Cooking Oil & Toor Dal</p>
+              </div>
+
+            </div>
+          </section>
+
+          {/* MAIN 3-COLUMN WORKSPACE */}
+          <main className="max-w-7xl mx-auto w-full px-5 py-5 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5">
+            
+            {/* COLUMN 1: SHOPKEEPER ACTION PANEL (Col 1-4) */}
+            <div className="lg:col-span-4 flex flex-col gap-4">
+              
+              {/* ZERO-POS MULTIMODAL ASSISTANT */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-amber-100 border border-amber-200 flex items-center justify-center text-amber-700">
+                      <Icons.Mic active={isListening} />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-bold text-slate-900">Multimodal Zero-POS</h2>
+                      <p className="text-[11px] text-slate-500">Voice Stock & Khata Logger</p>
+                    </div>
+                  </div>
+                  <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full font-medium ${isListening ? 'bg-red-100 text-red-700 border border-red-300 animate-pulse' : 'bg-slate-100 text-slate-600 border border-slate-200'}`}>
+                    {isListening ? 'LISTENING (HI-IN)' : 'WEB SPEECH API'}
+                  </span>
+                </div>
+
+                {/* Speech Input Box */}
+                <div className="relative">
+                  <textarea
+                    rows="2"
+                    value={speechTranscript}
+                    onChange={(e) => setSpeechTranscript(e.target.value)}
+                    placeholder="Speak or type (e.g. Parle-G 10 packet bacha hai, tel 4 packet, Ramesh 450 udhaar)"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:bg-white pr-10 resize-none transition shadow-inner"
+                  />
+                  <button
+                    onClick={toggleVoiceListening}
+                    className={`absolute right-2.5 bottom-3.5 p-1.5 rounded-lg transition ${isListening ? 'bg-red-600 text-white' : 'bg-slate-200 hover:bg-slate-300 text-slate-700'}`}
+                    title={isListening ? 'Stop listening' : 'Start voice recognition'}
+                  >
+                    <Icons.Mic active={isListening} />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between mt-2">
+                  <button
+                    onClick={() => handleProcessVoiceInput()}
+                    disabled={!speechTranscript.trim() || agentBusy}
+                    className="w-full py-2 rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-bold text-xs transition shadow-sm"
+                  >
+                    Process with Fuzzy & Alias Resolution
+                  </button>
+                </div>
+
+                {/* Quick Simulation Chips */}
+                <div className="mt-3 pt-3 border-t border-slate-100">
+                  <span className="text-[10px] text-slate-500 uppercase font-bold block mb-1.5">Quick Voice Test Scenarios:</span>
+                  <div className="flex flex-col gap-1.5">
+                    <button
+                      onClick={() => handleProcessVoiceInput("Parle-G 10 packet bacha hai, tel 4 packet, aur Ramesh ka 450 rupaye udhaar likh lo")}
+                      className="text-left text-[11px] bg-slate-50 hover:bg-amber-50/80 border border-slate-200 text-slate-800 px-2.5 py-1.5 rounded-lg transition"
+                    >
+                      🗣️ <em>"Parle-G 10 packet bacha hai, tel 4 packet, aur Ramesh ka 450 rupaye udhaar likh lo"</em>
+                    </button>
+                    <button
+                      onClick={() => handleProcessVoiceInput("Dal 15 packet bacha hai aur Suresh ka 200 udhar likho")}
+                      className="text-left text-[11px] bg-slate-50 hover:bg-amber-50/80 border border-slate-200 text-slate-800 px-2.5 py-1.5 rounded-lg transition"
+                    >
+                      🗣️ <em>"Dal 15 packet bacha hai aur Suresh ka 200 udhar likho"</em>
+                    </button>
+                    <button
+                      onClick={() => handleProcessVoiceInput("Sabun 20 bar aur doodh powder 5 packet")}
+                      className="text-left text-[11px] bg-slate-50 hover:bg-amber-50/80 border border-slate-200 text-slate-800 px-2.5 py-1.5 rounded-lg transition"
+                    >
+                      🗣️ <em>"Sabun 20 bar aur doodh powder 5 packet"</em>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* DISTRIBUTOR BILL OCR SCANNER */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-sky-100 border border-sky-200 flex items-center justify-center text-sky-700">
+                      <Icons.FileText />
+                    </div>
+                    <div>
+                      <h2 className="text-sm font-bold text-slate-900">Distributor Bill OCR</h2>
+                      <p className="text-[11px] text-slate-500">Zero-POS Stock Inward</p>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-600 mb-3 leading-relaxed">
+                  Scan printed or handwritten wholesaler invoices to automatically inward inventory and deduct cash.
+                </p>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={openSampleBillModal}
+                    className="flex-1 py-2 px-3 rounded-lg bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-sm"
+                  >
+                    <Icons.FileText />
+                    <span>Load Sample Distributor Bill</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* FESTIVAL SURGE TOGGLE */}
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🪔</span>
+                    <div>
+                      <h3 className="text-sm font-bold text-amber-900">Upcoming Festival Surge</h3>
+                      <p className="text-[11px] text-amber-700">Diwali & Weekend Demand Multiplier</p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={state.festival_mode}
+                      onChange={toggleFestivalMode}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                  </label>
+                </div>
+                {state.festival_mode && (
+                  <div className="mt-3 bg-white/80 border border-amber-300 rounded-xl p-2.5 text-[11px] text-amber-900 flex flex-col gap-1 shadow-xs">
+                    <div className="font-bold flex items-center gap-1 text-amber-800">
+                      <Icons.Sparkles /> Multipliers Applied:
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 text-[10px] text-amber-950 font-medium">
+                      <span>• Cooking Oil: <strong>+80% (1.8x)</strong></span>
+                      <span>• Toor Dal: <strong>+70% (1.7x)</strong></span>
+                      <span>• Biscuits/Snacks: <strong>+60% (1.6x)</strong></span>
+                      <span>• Dairy Powder: <strong>+20% (1.2x)</strong></span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* HUMAN-IN-THE-LOOP APPROVAL CARD */}
+              {activeOrder && (
+                <div className={`border rounded-2xl p-4 shadow-sm transition-all ${activeOrder.status === 'AWAITING_OWNER_APPROVAL' ? 'bg-amber-50/60 border-amber-400 ring-2 ring-amber-300/40' : 'bg-white border-slate-200'}`}>
+                  
+                  {/* Status header */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2.5 h-2.5 rounded-full ${activeOrder.status === 'AWAITING_OWNER_APPROVAL' ? 'bg-amber-600 animate-ping' : 'bg-emerald-600'}`}></span>
+                      <h3 className="text-sm font-bold text-slate-900">
+                        {activeOrder.status === 'AWAITING_OWNER_APPROVAL' ? 'Order Approval Required' : 'Order Transmitted'}
+                      </h3>
+                    </div>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold border border-slate-200">
+                      {activeOrder.order_id}
+                    </span>
+                  </div>
+
+                  {activeOrder.status === 'AWAITING_OWNER_APPROVAL' && (
+                    <div className="bg-amber-100 border border-amber-300 rounded-lg p-2 mb-3 text-[11px] text-amber-950 font-medium">
+                      <strong>Hard Guardrail:</strong> AI paused execution. Shopkeeper must review & approve before supplier transmission.
+                    </div>
+                  )}
+
+                  {activeOrder.distributor_alert && (
+                    <div className="bg-rose-50 border border-rose-300 rounded-lg p-2.5 mb-3 text-[11px] text-rose-900">
+                      <strong className="text-rose-950 block mb-0.5">⚠️ Distributor WhatsApp Notice:</strong>
+                      <em>"{activeOrder.distributor_alert}"</em>
+                    </div>
+                  )}
+
+                  {/* Order items table */}
+                  <div className="space-y-1.5 mb-3 max-h-48 overflow-y-auto pr-1">
+                    {activeOrder.items?.map((it, idx) => (
+                      <div key={idx} className="bg-slate-50 border border-slate-200 p-2 rounded-lg text-xs flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-slate-800">{it.name}</span>
+                          {it.substitution_reason && (
+                            <span className="block text-[10px] text-amber-700 font-medium mt-0.5">↳ {it.substitution_reason}</span>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <span className="font-bold text-emerald-700">{it.quantity} {it.unit}</span>
+                          <span className="block text-[10px] text-slate-500 font-medium">@ ₹{it.unit_cost} = ₹{it.total_cost}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Financials summary */}
+                  <div className="border-t border-slate-200 pt-2 mb-3 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-slate-500">Total Value:</span>
+                      <strong className="text-slate-900 ml-1">₹{activeOrder.total_order_cost}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Remaining Cash:</span>
+                      <strong className="text-emerald-700 ml-1">₹{activeOrder.remaining_budget}</strong>
+                    </div>
+                  </div>
+
+                  {/* WhatsApp Preview Drawer */}
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 mb-3 text-[11px]">
+                    <div className="flex items-center gap-1.5 text-emerald-800 font-bold mb-1">
+                      <Icons.PhoneCall />
+                      <span>WhatsApp Draft Preview:</span>
+                    </div>
+                    <pre className="text-[10px] text-emerald-950 whitespace-pre-wrap font-sans bg-white p-2 rounded border border-emerald-200 shadow-inner">
+                      {activeOrder.whatsapp_message}
+                    </pre>
+                  </div>
+
+                  {/* Action buttons */}
+                  {activeOrder.status === 'AWAITING_OWNER_APPROVAL' ? (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleApproveOrder(activeOrder.order_id)}
+                        disabled={agentBusy}
+                        className="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition active:scale-95 shadow-sm"
+                      >
+                        ✓ Approve & Send to Balaji
+                      </button>
+                      <button
+                        onClick={() => handleRejectOrder(activeOrder.order_id)}
+                        className="py-2 px-3 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 text-xs font-semibold transition"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      <div className="text-center py-1.5 bg-emerald-50 border border-emerald-300 rounded-lg text-emerald-800 text-xs font-bold">
+                        ✓ Order Sent & Acknowledged
+                      </div>
+                      
+                      {/* SIMULATE DISTRIBUTOR STOCKOUT EXCEPTION BUTTON */}
+                      <button
+                        onClick={triggerSimulateStockout}
+                        disabled={agentBusy}
+                        className="w-full py-2 px-3 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs transition shadow-sm flex items-center justify-center gap-1.5"
+                      >
+                        <Icons.AlertTriangle />
+                        <span>Simulate Distributor Stockout (1L Oil Out of Stock)</span>
+                      </button>
+                    </div>
+                  )}
+
+                </div>
+              )}
+
+            </div>
+
+            {/* COLUMN 2: CENTER INVENTORY & KHATA LEDGER (Col 5-8) */}
+            <div className="lg:col-span-4 flex flex-col gap-4">
+              
+              {/* TABS */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex-1 flex flex-col">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-3">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setActiveTab('inventory')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${activeTab === 'inventory' ? 'bg-amber-500 text-slate-950 shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    >
+                      Inventory ({state.inventory.length})
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('khata')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${activeTab === 'khata' ? 'bg-amber-500 text-slate-950 shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    >
+                      Khata Ledger ({state.khata.length})
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('insights')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${activeTab === 'insights' ? 'bg-amber-500 text-slate-950 shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    >
+                      AI Recommendations
+                    </button>
+                  </div>
+                </div>
+
+                {/* TAB 1: INVENTORY TABLE */}
+                {activeTab === 'inventory' && (
+                  <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+                    {state.inventory.map((item) => {
+                      const daysLeft = item.days_of_stock_left;
+                      const isStockout = daysLeft < state.next_distributor_days;
+                      const isExpiry = item.expiry_days <= 15;
+                      const isDead = item.daily_avg_sales < 0.1;
+
+                      return (
+                        <div key={item.sku} className="bg-slate-50/80 border border-slate-200 hover:border-slate-300 rounded-xl p-3 transition shadow-xs">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-mono font-bold text-slate-500">{item.sku}</span>
+                                <h4 className="text-xs font-bold text-slate-900">{item.name}</h4>
+                              </div>
+                              <span className="text-[10px] text-slate-500 font-medium">{item.category}</span>
+                            </div>
+
+                            {/* Status Badges */}
+                            <div className="flex flex-col items-end gap-1">
+                              {isStockout && (
+                                <span className="bg-rose-100 text-rose-800 border border-rose-300 text-[9px] px-1.5 py-0.5 rounded font-bold">
+                                  Stockout Risk ({daysLeft}d left)
+                                </span>
+                              )}
+                              {isExpiry && (
+                                <span className="bg-amber-100 text-amber-800 border border-amber-300 text-[9px] px-1.5 py-0.5 rounded font-bold">
+                                  Expiring in {item.expiry_days}d!
+                                </span>
+                              )}
+                              {isDead && (
+                                <span className="bg-purple-100 text-purple-800 border border-purple-300 text-[9px] px-1.5 py-0.5 rounded font-bold">
+                                  Dead Stock
+                                </span>
+                              )}
+                              {!isStockout && !isExpiry && !isDead && (
+                                <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] px-1.5 py-0.5 rounded font-medium">
+                                  Healthy ({daysLeft}d cover)
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Inventory numbers */}
+                          <div className="mt-2.5 pt-2 border-t border-slate-200 grid grid-cols-4 gap-2 text-[11px]">
+                            <div>
+                              <span className="text-slate-500 block text-[9px]">Stock</span>
+                              <strong className="text-slate-900 font-mono">{item.current_stock} {item.unit}</strong>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block text-[9px]">Cost / Sell</span>
+                              <span className="text-slate-700 font-medium">₹{item.cost_price} / ₹{item.selling_price}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block text-[9px]">Daily Demand</span>
+                              <span className="text-amber-800 font-mono font-bold">
+                                {item.projected_daily_demand || item.daily_avg_sales}/d
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-slate-500 block text-[9px]">Expiry</span>
+                              <span className={item.expiry_days <= 15 ? 'text-rose-700 font-bold' : 'text-slate-600'}>
+                                +{item.expiry_days}d
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Aliases pill */}
+                          <div className="mt-2 flex items-center gap-1 flex-wrap">
+                            <span className="text-[9px] text-slate-500">Aliases:</span>
+                            {item.aliases.map((al, idx) => (
+                              <span key={idx} className="text-[9px] bg-white text-slate-600 px-1.5 py-0.2 rounded border border-slate-200">
+                                {al}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* TAB 2: KHATA LEDGER */}
+                {activeTab === 'khata' && (
+                  <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                    <div className="bg-amber-50/70 p-3 rounded-xl border border-amber-200 text-xs mb-2 flex items-center justify-between">
+                      <span className="text-slate-700 font-medium">Total Khata Outstanding:</span>
+                      <span className="font-black text-amber-800 text-base font-mono">
+                        ₹{state.khata.reduce((acc, k) => acc + k.amount, 0).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+
+                    {state.khata.map((k) => (
+                      <div key={k.id} className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs flex items-center justify-between shadow-xs">
+                        <div>
+                          <h4 className="font-bold text-slate-900">{k.customer_name}</h4>
+                          <span className="text-[10px] text-slate-500">{k.customer_phone} • {k.created_at}</span>
+                          {k.notes && <p className="text-[10px] text-slate-600 mt-0.5">Note: {k.notes}</p>}
+                        </div>
+                        <div className="text-right">
+                          <span className="text-rose-700 font-bold font-mono text-sm block">₹{k.amount}</span>
+                          <span className="text-[9px] text-emerald-800 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded font-semibold">
+                            Pending
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* TAB 3: INSIGHTS & ACTIONS */}
+                {activeTab === 'insights' && (
+                  <div className="flex-1 overflow-y-auto space-y-3 pr-1 text-xs">
+                    
+                    {/* Near Expiry Action */}
+                    <div className="bg-rose-50/70 border border-rose-200 rounded-xl p-3 shadow-xs">
+                      <div className="flex items-center gap-1.5 text-rose-800 font-bold mb-1">
+                        <Icons.AlertTriangle />
+                        <span>Near-Expiry Capital Threat (SKU03)</span>
+                      </div>
+                      <p className="text-slate-700 text-[11px] leading-relaxed">
+                        <strong>Dairy Milk Powder (500g):</strong> 20 packets expiring in 8 days. ₹3,600 working capital at risk.
+                      </p>
+                      <div className="mt-2 bg-white p-2 rounded border border-rose-200 text-[10px] text-rose-900 leading-relaxed shadow-inner">
+                        <strong>AI Strategy:</strong> Flash 20% bundle discount with Toor Dal to liquidate within 4 days, or initiate return with Amul distributor before 5-day return window expires.
+                      </div>
+                    </div>
+
+                    {/* Dead Stock Action */}
+                    <div className="bg-purple-50/70 border border-purple-200 rounded-xl p-3 shadow-xs">
+                      <div className="flex items-center gap-1.5 text-purple-900 font-bold mb-1">
+                        <Icons.Sparkles />
+                        <span>Dead Capital Liquidation (SKU06)</span>
+                      </div>
+                      <p className="text-slate-700 text-[11px] leading-relaxed">
+                        <strong>Exotic Herbal Tea (250g):</strong> 25 boxes blocking ₹5,500. Sold only 1 in 3 weeks.
+                      </p>
+                      <div className="mt-2 bg-white p-2 rounded border border-purple-200 text-[10px] text-purple-900 leading-relaxed shadow-inner">
+                        <strong>AI Strategy:</strong> Mark down from ₹280 to cost price ₹220 or clearance at ₹180 to free shelf space for high-velocity Tata Tea.
+                      </div>
+                    </div>
+
+                    {/* Distributor Rhythm */}
+                    <div className="bg-sky-50/70 border border-sky-200 rounded-xl p-3 shadow-xs">
+                      <div className="flex items-center gap-1.5 text-sky-900 font-bold mb-1">
+                        <Icons.FileText />
+                        <span>Supplier Cycle Awareness</span>
+                      </div>
+                      <p className="text-slate-700 text-[11px] leading-relaxed">
+                        Balaji Wholesale visits every <strong>Thursday (3-day cycle)</strong>. Failure to order Cooking Oil & Toor Dal now guarantees a 2-day stockout during weekend rush.
+                      </p>
+                    </div>
+
+                  </div>
+                )}
+
+              </div>
+            </div>
+
+            {/* COLUMN 3: JUDGE'S X-RAY CONSOLE (Col 9-12) */}
+            <div className="lg:col-span-4 flex flex-col gap-3">
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex-1 flex flex-col h-full max-h-[820px]">
+                
+                {/* CONSOLE HEADER */}
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2.5 mb-2.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 pulse-agent"></div>
+                    <div>
+                      <h3 className="text-xs font-bold text-slate-900 tracking-wide uppercase">Judge's X-Ray Console</h3>
+                      <p className="text-[10px] text-slate-500">Live ReAct Reasoning & Tool Trace</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={clearTraces}
+                    className="text-[10px] text-slate-600 hover:text-slate-900 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 border border-slate-200 transition"
+                  >
+                    Clear Trace
+                  </button>
+                </div>
+
+                {/* FILTER PILLS */}
+                <div className="flex items-center gap-1 mb-2.5 overflow-x-auto pb-1 text-[10px]">
+                  {['ALL', 'THINK', 'TOOLS', 'GUARDRAILS', 'RECOVERY'].map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setTraceFilter(f)}
+                      className={`px-2 py-0.5 rounded font-mono transition ${traceFilter === f ? 'bg-amber-500 text-slate-950 font-bold shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+
+                {/* TIMELINE STREAM */}
+                <div className="flex-1 overflow-y-auto space-y-2 pr-1 font-mono text-xs">
+                  {filteredTraces.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400 text-xs">
+                      No trace events yet. Click "Run Full Agentic Audit" or speak via Zero-POS to watch live agent tool execution.
+                    </div>
+                  ) : (
+                    filteredTraces.map((trace) => {
+                      const isGuardrail = trace.stage === 'GUARDRAIL';
+                      const isRecovery = trace.stage === 'RECOVERY';
+                      const isTool = trace.stage === 'TOOL_CALL' || trace.stage === 'TOOL_RESULT';
+
+                      return (
+                        <div
+                          key={trace.id}
+                          className={`p-2.5 rounded-xl border transition text-[11px] ${
+                            isGuardrail
+                              ? 'bg-amber-50 border-amber-300 text-amber-950'
+                              : isRecovery
+                              ? 'bg-rose-50 border-rose-300 text-rose-950'
+                              : isTool
+                              ? 'bg-slate-50 border-slate-200 text-slate-800'
+                              : 'bg-white border-slate-200 text-slate-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase tracking-wider ${
+                              trace.stage === 'OBSERVE' ? 'bg-sky-100 text-sky-800 border border-sky-300' :
+                              trace.stage === 'THINK' ? 'bg-indigo-100 text-indigo-800 border border-indigo-300' :
+                              trace.stage === 'GUARDRAIL' ? 'bg-amber-100 text-amber-900 border border-amber-400 font-black' :
+                              trace.stage === 'RECOVERY' ? 'bg-rose-100 text-rose-900 border border-rose-400 font-black' :
+                              trace.stage === 'ACTION' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
+                              'bg-slate-200 text-slate-700'
+                            }`}>
+                              {trace.stage}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-mono">{trace.timestamp}</span>
+                          </div>
+
+                          <p className="font-sans text-xs text-slate-800 my-1 leading-relaxed">
+                            {trace.message}
+                          </p>
+
+                          {trace.tool_name && (
+                            <div className="text-[10px] font-mono text-amber-800 font-bold mt-1">
+                              🛠️ <span className="underline">{trace.tool_name}</span>()
+                            </div>
+                          )}
+
+                          {/* Collapsible Tool Args / Result */}
+                          {trace.tool_args && Object.keys(trace.tool_args).length > 0 && (
+                            <details className="mt-1 bg-white border border-slate-200 rounded p-1 text-[10px] text-slate-600">
+                              <summary className="cursor-pointer text-slate-500 hover:text-slate-800 select-none font-medium">
+                                ▶ Input Args: {Object.keys(trace.tool_args).join(', ')}
+                              </summary>
+                              <pre className="mt-1 whitespace-pre-wrap overflow-x-auto text-emerald-800 text-[9px] font-mono p-1.5 bg-slate-100 rounded border border-slate-200">
+                                {JSON.stringify(trace.tool_args, null, 2)}
+                              </pre>
+                            </details>
+                          )}
+
+                          {trace.tool_result && (
+                            <details className="mt-1 bg-white border border-slate-200 rounded p-1 text-[10px] text-slate-600" open={isGuardrail || isRecovery}>
+                              <summary className="cursor-pointer text-slate-500 hover:text-slate-800 select-none font-medium">
+                                ▶ Tool Result Payload
+                              </summary>
+                              <pre className="mt-1 whitespace-pre-wrap overflow-x-auto text-amber-900 text-[9px] font-mono p-1.5 bg-amber-50/60 rounded border border-amber-200">
+                                {JSON.stringify(trace.tool_result, null, 2)}
+                              </pre>
+                            </details>
+                          )}
+
+                        </div>
+                      );
+                    })
+                  )}
+                  <div ref={traceEndRef} />
+                </div>
+
+              </div>
+            </div>
+
+          </main>
+
+          {/* DISTRIBUTOR BILL SCAN MODAL */}
+          {showBillModal && sampleBill && (
+            <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+              <div className="bg-white border border-slate-300 rounded-2xl max-w-lg w-full p-5 shadow-2xl">
+                
+                <div className="flex items-center justify-between border-b border-slate-200 pb-3 mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">📄</span>
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900">Distributor Invoice OCR Inward</h3>
+                      <p className="text-[10px] text-slate-500 font-medium">Confidence: {(sampleBill.confidence_score * 100).toFixed(1)}%</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setShowBillModal(false)} className="text-slate-400 hover:text-slate-700 text-lg">✕</button>
+                </div>
+
+                {/* Simulated Invoice Display */}
+                <div className="bg-amber-50/70 text-slate-900 rounded-xl p-4 font-mono text-[11px] shadow-inner mb-4 border border-amber-200">
+                  <div className="text-center border-b border-amber-300 pb-2 mb-2">
+                    <h4 className="font-black text-sm tracking-wide uppercase text-slate-900">{sampleBill.distributor_name}</h4>
+                    <p className="text-[10px] text-slate-600">GSTIN: {sampleBill.gstin} | Inv: {sampleBill.invoice_number}</p>
+                    <p className="text-[10px] text-slate-600">Billed to: {sampleBill.billed_to} | Date: {sampleBill.date}</p>
+                  </div>
+
+                  <div className="space-y-1 mb-2">
+                    {sampleBill.items.map((it, idx) => (
+                      <div key={idx} className="flex justify-between border-b border-amber-200/60 pb-1">
+                        <span>{it.quantity}x {it.item_name}</span>
+                        <span className="font-bold">₹{it.total}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="border-t-2 border-slate-800 pt-1 text-right space-y-0.5">
+                    <div>Subtotal: ₹{sampleBill.subtotal}</div>
+                    <div>GST (5%): ₹{sampleBill.gst_amount}</div>
+                    <div className="text-xs font-black text-slate-950">Net Total: ₹{sampleBill.grand_total}</div>
+                  </div>
+                </div>
+
+                <div className="text-xs text-slate-700 mb-4 bg-slate-50 p-2.5 rounded-lg border border-slate-200 leading-relaxed">
+                  <strong>Action:</strong> Clicking confirm will automatically credit stock quantities to SKU01 (+50 pkts), SKU02 (+20 pouches), SKU05 (+15 pkts) and deduct ₹{sampleBill.grand_total} from Cash Budget.
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={confirmBillInward}
+                    disabled={agentBusy}
+                    className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition shadow-sm"
+                  >
+                    Confirm Stock Inward & Pay Bill
+                  </button>
+                  <button
+                    onClick={() => setShowBillModal(false)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 transition"
+                  >
+                    Cancel
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
